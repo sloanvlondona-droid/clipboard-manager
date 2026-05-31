@@ -171,6 +171,7 @@ class MainWindow(QWidget):
             Qt.WindowType.Popup
         )
         self.setStyleSheet(styles.GLOBAL_STYLESHEET)
+        self._drag_pos = None  # 拖动位置
         self._setup()
         self.refresh()
 
@@ -275,6 +276,7 @@ class MainWindow(QWidget):
                                  QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                                  QMessageBox.StandardButton.No)
         self._in_dialog = False
+        self._htimer.stop()  # 取消隐藏定时器
         if r == QMessageBox.StandardButton.Yes:
             n = database.delete_all(preserve_pinned=True)
             self.refresh(); self.toast.show_msg(f"🗑 已清空 {n} 条")
@@ -314,6 +316,7 @@ class MainWindow(QWidget):
             dlg = DetailDialog(e, self)
             dlg.exec()
             self._in_dialog = False
+            self._htimer.stop()  # 取消隐藏定时器
 
     # ========== 窗口显隐 ==========
 
@@ -346,3 +349,18 @@ class MainWindow(QWidget):
     def resizeEvent(self, event):
         super().resizeEvent(event)
         self._stimer.start(200)
+
+    # ========== 窗口拖动（标题栏） ==========
+
+    def mousePressEvent(self, event):
+        if event.position().y() < 42:
+            self._drag_pos = event.globalPosition().toPoint()
+
+    def mouseMoveEvent(self, event):
+        if self._drag_pos is not None:
+            d = event.globalPosition().toPoint() - self._drag_pos
+            self.move(self.pos() + d)
+            self._drag_pos = event.globalPosition().toPoint()
+
+    def mouseReleaseEvent(self, event):
+        self._drag_pos = None

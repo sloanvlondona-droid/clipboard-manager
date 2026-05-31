@@ -3,8 +3,8 @@
 """
 
 # ========== 配色 ==========
-C_PRIMARY       = "#FFFFFF"
-C_SURFACE       = "#F8F9FB"
+C_PRIMARY       = "#FAFBFC"
+C_SURFACE       = "#F2F4F7"
 C_HOVER         = "#F0F4FF"
 C_PINNED        = "#FFFDF5"
 C_PINNED_BORDER = "#FCE68A"
