@@ -5,3 +5,6 @@ clipboard_images/
 app.log
 *.db
 test*
+build/
+dist/
+*.spec

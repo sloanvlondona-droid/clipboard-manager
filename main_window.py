@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import (
     QDialogButtonBox, QScrollArea
 )
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QEvent
-from PyQt6.QtGui import QAction, QCursor, QPixmap, QImage
+from PyQt6.QtGui import QAction, QCursor, QPixmap, QImage, QIcon
 import os
 import database
 import styles
@@ -134,6 +134,7 @@ class MainWindow(QWidget):
         self.monitor = monitor
         self._in_dialog = False
         self.setWindowTitle("📋 剪贴板历史")
+        self.setWindowIcon(QIcon())  # 去掉默认图标
         self.setMinimumSize(420, 480)
         self.resize(500, 660)
         # 标准窗口 + 置顶
