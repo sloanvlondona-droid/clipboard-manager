@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLineEdit,
     QPushButton, QLabel, QFrame, QMenu, QMessageBox,
     QApplication, QTextEdit, QDialog,
-    QDialogButtonBox, QScrollArea
+    QDialogButtonBox, QScrollArea, QSizeGrip
 )
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QPoint
 from PyQt6.QtGui import QAction, QCursor, QPixmap, QImage
@@ -168,7 +168,7 @@ class MainWindow(QWidget):
         self.setWindowFlags(
             Qt.WindowType.FramelessWindowHint |
             Qt.WindowType.WindowStaysOnTopHint |
-            Qt.WindowType.Popup
+            Qt.WindowType.Tool
         )
         self.setStyleSheet(styles.GLOBAL_STYLESHEET)
         self._drag_pos = None  # 拖动位置
@@ -221,7 +221,9 @@ class MainWindow(QWidget):
         clr.setCursor(Qt.CursorShape.PointingHandCursor)
         clr.setStyleSheet(f"QPushButton{{background:transparent;border:none;color:{styles.C_DANGER};font-size:12px;}} QPushButton:hover{{background:{styles.C_DANGER_LIGHT};border-radius:8px;}}")
         clr.clicked.connect(self._clear)
-        bl.addWidget(self.count_lbl); bl.addStretch(); bl.addWidget(clr)
+        grip = QSizeGrip(self)
+        grip.setStyleSheet("background:transparent;")
+        bl.addWidget(self.count_lbl); bl.addStretch(); bl.addWidget(clr); bl.addWidget(grip)
 
         self.toast = Toast(self)
 
@@ -322,9 +324,12 @@ class MainWindow(QWidget):
 
     def toggle(self):
         if self.isVisible(): self.hide()
-        else: self.show(); self._pos(); self.refresh()
+        else:
+            self._htimer.stop()
+            self.show(); self._pos(); self.refresh()
 
     def show_and_focus(self):
+        self._htimer.stop()
         self.show(); self._pos(); self.raise_(); self.activateWindow()
         self.search.setFocus(); self.refresh()
 
