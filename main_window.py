@@ -168,41 +168,13 @@ class MainWindow(QWidget):
         self.setWindowFlags(
             Qt.WindowType.FramelessWindowHint |
             Qt.WindowType.WindowStaysOnTopHint |
-            Qt.WindowType.Window
+            Qt.WindowType.Tool
         )
         self.setStyleSheet(styles.GLOBAL_STYLESHEET)
         self._drag_pos = None
         self._setup()
         self.refresh()
         self.installEventFilter(self)
-
-    def nativeEvent(self, eventType, message):
-        """Windows 原生：边框缩放"""
-        if eventType == "windows_generic_MSG":
-            try:
-                import ctypes
-                class MSG(ctypes.Structure):
-                    _fields_ = [("h", ctypes.c_void_p), ("m", ctypes.c_uint),
-                                ("w", ctypes.c_void_p), ("l", ctypes.c_void_p),
-                                ("t", ctypes.c_uint),
-                                ("x", ctypes.c_long), ("y", ctypes.c_long)]
-                ptr = ctypes.cast(int(message), ctypes.POINTER(MSG))
-                if ptr.contents.m == 132:
-                    x = ptr.contents.x - self.x()
-                    y = ptr.contents.y - self.y()
-                    w, h, b = self.width(), self.height(), 8
-                    L, R, T, B = x < b, x > w - b, y < b, y > h - b
-                    if L and T: return True, 13
-                    if R and T: return True, 14
-                    if L and B: return True, 16
-                    if R and B: return True, 17
-                    if L: return True, 10
-                    if R: return True, 11
-                    if T: return True, 12
-                    if B: return True, 15
-            except Exception:
-                pass
-        return False, 0
 
     def _setup(self):
         root = QVBoxLayout(self)
