@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLineEdit,
     QPushButton, QLabel, QFrame, QMenu, QMessageBox,
     QApplication, QTextEdit, QDialog,
-    QDialogButtonBox, QScrollArea
+    QDialogButtonBox, QScrollArea, QSizeGrip
 )
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QPoint
 from PyQt6.QtGui import QAction, QCursor, QPixmap, QImage
@@ -174,7 +174,8 @@ class MainWindow(QWidget):
         self._drag_pos = None
         self._setup()
         self.refresh()
-        self.installEventFilter(self)
+        # 全局事件过滤器（捕获所有子控件的右键）
+        QApplication.instance().installEventFilter(self)
 
     def _setup(self):
         root = QVBoxLayout(self)
@@ -222,7 +223,9 @@ class MainWindow(QWidget):
         clr.setCursor(Qt.CursorShape.PointingHandCursor)
         clr.setStyleSheet(f"QPushButton{{background:transparent;border:none;color:{styles.C_DANGER};font-size:12px;}} QPushButton:hover{{background:{styles.C_DANGER_LIGHT};border-radius:8px;}}")
         clr.clicked.connect(self._clear)
-        bl.addWidget(self.count_lbl); bl.addStretch(); bl.addWidget(clr)
+        grip = QSizeGrip(self)
+        grip.setFixedSize(14, 14)
+        bl.addWidget(self.count_lbl); bl.addStretch(); bl.addWidget(clr); bl.addWidget(grip)
 
         self.toast = Toast(self)
 
