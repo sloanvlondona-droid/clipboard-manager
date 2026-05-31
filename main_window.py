@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLineEdit,
     QPushButton, QLabel, QFrame, QMenu, QMessageBox,
     QApplication, QTextEdit, QDialog,
-    QDialogButtonBox, QScrollArea, QSizeGrip
+    QDialogButtonBox, QScrollArea
 )
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QPoint
 from PyQt6.QtGui import QAction, QCursor, QPixmap, QImage
@@ -168,10 +168,11 @@ class MainWindow(QWidget):
         self.setWindowFlags(
             Qt.WindowType.FramelessWindowHint |
             Qt.WindowType.WindowStaysOnTopHint |
-            Qt.WindowType.Tool
+            Qt.WindowType.Dialog
         )
         self.setStyleSheet(styles.GLOBAL_STYLESHEET)
-        self._drag_pos = None  # 拖动位置
+        self._drag_pos = None
+        self._edge = -1
         self._setup()
         self.refresh()
 
@@ -221,9 +222,7 @@ class MainWindow(QWidget):
         clr.setCursor(Qt.CursorShape.PointingHandCursor)
         clr.setStyleSheet(f"QPushButton{{background:transparent;border:none;color:{styles.C_DANGER};font-size:12px;}} QPushButton:hover{{background:{styles.C_DANGER_LIGHT};border-radius:8px;}}")
         clr.clicked.connect(self._clear)
-        grip = QSizeGrip(self)
-        grip.setStyleSheet("background:transparent;")
-        bl.addWidget(self.count_lbl); bl.addStretch(); bl.addWidget(clr); bl.addWidget(grip)
+        bl.addWidget(self.count_lbl); bl.addStretch(); bl.addWidget(clr)
 
         self.toast = Toast(self)
 
@@ -314,11 +313,9 @@ class MainWindow(QWidget):
     def _detail(self, eid):
         e = database.get_entry_by_id(eid)
         if e:
-            self._in_dialog = True
             dlg = DetailDialog(e, self)
-            dlg.exec()
-            self._in_dialog = False
-            self._htimer.stop()  # 取消隐藏定时器
+            dlg.setWindowFlags(Qt.WindowType.Dialog | Qt.WindowType.WindowStaysOnTopHint)
+            dlg.show()  # 非模态，不阻塞主窗口
 
     # ========== 窗口显隐 ==========
 
@@ -355,17 +352,53 @@ class MainWindow(QWidget):
         super().resizeEvent(event)
         self._stimer.start(200)
 
-    # ========== 窗口拖动（标题栏） ==========
+    # ========== 窗口拖动 + 边缘缩放 ==========
+
+    def _edge_test(self, pos):
+        """检测鼠标在窗口边缘的位置，返回拖拽方向"""
+        r = self.rect(); m = 6
+        l = pos.x() < m; r2 = pos.x() > r.width() - m
+        t = pos.y() < m; b = pos.y() > r.height() - m
+        if l and t: return 0  # 左上
+        if r2 and t: return 1  # 右上
+        if l and b: return 2  # 左下
+        if r2 and b: return 3  # 右下
+        if l: return 4  # 左
+        if r2: return 5  # 右
+        if t: return 6  # 上
+        if b: return 7  # 下
+        if pos.y() < 42: return 8  # 标题栏拖动
+        return -1
 
     def mousePressEvent(self, event):
-        if event.position().y() < 42:
-            self._drag_pos = event.globalPosition().toPoint()
+        self._edge = self._edge_test(event.position().toPoint())
+        self._drag_pos = event.globalPosition().toPoint()
 
     def mouseMoveEvent(self, event):
-        if self._drag_pos is not None:
-            d = event.globalPosition().toPoint() - self._drag_pos
+        gp = event.globalPosition().toPoint()
+        d = gp - self._drag_pos
+        geo = self.geometry()
+        if self._edge == 8:  # 标题栏拖动
             self.move(self.pos() + d)
-            self._drag_pos = event.globalPosition().toPoint()
+        elif self._edge >= 0:
+            if self._edge in (0, 4, 6): geo.setLeft(geo.left() + d.x())
+            if self._edge in (1, 5, 7): geo.setRight(geo.right() + d.x())
+            if self._edge in (0, 2, 6): geo.setTop(geo.top() + d.y())
+            if self._edge in (1, 3, 7): geo.setBottom(geo.bottom() + d.y())
+            if geo.width() >= self.minimumWidth() and geo.height() >= self.minimumHeight():
+                self.setGeometry(geo)
+        self._drag_pos = gp
+        # 更新光标
+        cursors = {0: Qt.CursorShape.SizeFDiagCursor, 1: Qt.CursorShape.SizeBDiagCursor,
+                   2: Qt.CursorShape.SizeBDiagCursor, 3: Qt.CursorShape.SizeFDiagCursor,
+                   4: Qt.CursorShape.SizeHorCursor, 5: Qt.CursorShape.SizeHorCursor,
+                   6: Qt.CursorShape.SizeVerCursor, 7: Qt.CursorShape.SizeVerCursor}
+        if self._edge in cursors:
+            self.setCursor(cursors[self._edge])
+        elif self._edge == 8:
+            self.setCursor(Qt.CursorShape.ArrowCursor)
 
     def mouseReleaseEvent(self, event):
+        self._edge = -1
         self._drag_pos = None
+        self.setCursor(Qt.CursorShape.ArrowCursor)
