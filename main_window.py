@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLineEdit,
     QPushButton, QLabel, QFrame, QMenu, QMessageBox,
     QApplication, QTextEdit, QDialog,
-    QDialogButtonBox, QScrollArea, QSizeGrip
+    QDialogButtonBox, QScrollArea
 )
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QPoint
 from PyQt6.QtGui import QAction, QCursor, QPixmap, QImage
@@ -143,7 +143,7 @@ class ItemWidget(QFrame):
 
         root.addLayout(bar)
 
-    def _copy(self, event=None):
+    def _copy(self, *args):
         cb = QApplication.clipboard()
         if self.ctype == "image" and self.ipath and os.path.exists(self.ipath):
             img = QImage(self.ipath)
@@ -168,12 +168,40 @@ class MainWindow(QWidget):
         self.setWindowFlags(
             Qt.WindowType.FramelessWindowHint |
             Qt.WindowType.WindowStaysOnTopHint |
-            Qt.WindowType.Dialog
+            Qt.WindowType.Window
         )
         self.setStyleSheet(styles.GLOBAL_STYLESHEET)
         self._drag_pos = None
         self._setup()
         self.refresh()
+
+    def nativeEvent(self, eventType, message):
+        """Windows 原生：边框缩放"""
+        if eventType == "windows_generic_MSG":
+            try:
+                import ctypes
+                class MSG(ctypes.Structure):
+                    _fields_ = [("h", ctypes.c_void_p), ("m", ctypes.c_uint),
+                                ("w", ctypes.c_void_p), ("l", ctypes.c_void_p),
+                                ("t", ctypes.c_uint),
+                                ("x", ctypes.c_long), ("y", ctypes.c_long)]
+                ptr = ctypes.cast(int(message), ctypes.POINTER(MSG))
+                if ptr.contents.m == 132:
+                    x = ptr.contents.x - self.x()
+                    y = ptr.contents.y - self.y()
+                    w, h, b = self.width(), self.height(), 8
+                    L, R, T, B = x < b, x > w - b, y < b, y > h - b
+                    if L and T: return True, 13
+                    if R and T: return True, 14
+                    if L and B: return True, 16
+                    if R and B: return True, 17
+                    if L: return True, 10
+                    if R: return True, 11
+                    if T: return True, 12
+                    if B: return True, 15
+            except Exception:
+                pass
+        return False, 0
 
     def _setup(self):
         root = QVBoxLayout(self)
@@ -221,10 +249,7 @@ class MainWindow(QWidget):
         clr.setCursor(Qt.CursorShape.PointingHandCursor)
         clr.setStyleSheet(f"QPushButton{{background:transparent;border:none;color:{styles.C_DANGER};font-size:12px;}} QPushButton:hover{{background:{styles.C_DANGER_LIGHT};border-radius:8px;}}")
         clr.clicked.connect(self._clear)
-        grip = QSizeGrip(self)
-        grip.setFixedSize(16, 16)
-        grip.setStyleSheet("background:transparent;")
-        bl.addWidget(self.count_lbl); bl.addStretch(); bl.addWidget(clr); bl.addWidget(grip)
+        bl.addWidget(self.count_lbl); bl.addStretch(); bl.addWidget(clr)
 
         self.toast = Toast(self)
 
