@@ -161,6 +161,7 @@ class MainWindow(QWidget):
     def __init__(self, parent=None, monitor=None):
         super().__init__(parent)
         self.monitor = monitor
+        self._in_dialog = False
         self.setWindowTitle("📋 剪贴板历史")
         self.setMinimumSize(420, 480)
         self.resize(500, 660)
@@ -228,10 +229,6 @@ class MainWindow(QWidget):
         self._stimer = QTimer(self, singleShot=True, timeout=self.refresh)
         self._htimer = QTimer(self, singleShot=True, timeout=self._try_hide)
 
-    def resizeEvent(self, event):
-        super().resizeEvent(event)
-        self._stimer.start(200)
-
     # ========== 刷新 ==========
 
     def refresh(self):
@@ -273,9 +270,11 @@ class MainWindow(QWidget):
         self.toast.show_msg("✅ 已复制到剪贴板")
 
     def _clear(self):
+        self._in_dialog = True
         r = QMessageBox.question(self, "确认", "删除所有非置顶记录？",
                                  QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                                  QMessageBox.StandardButton.No)
+        self._in_dialog = False
         if r == QMessageBox.StandardButton.Yes:
             n = database.delete_all(preserve_pinned=True)
             self.refresh(); self.toast.show_msg(f"🗑 已清空 {n} 条")
@@ -311,8 +310,10 @@ class MainWindow(QWidget):
     def _detail(self, eid):
         e = database.get_entry_by_id(eid)
         if e:
-            dlg = DetailDialog(e, None)  # 独立窗口，不绑定父窗口
+            self._in_dialog = True
+            dlg = DetailDialog(e, self)
             dlg.exec()
+            self._in_dialog = False
 
     # ========== 窗口显隐 ==========
 
@@ -331,6 +332,8 @@ class MainWindow(QWidget):
             self.move(g.right() - self.width() - 10, g.bottom() - self.height() - 10)
 
     def _try_hide(self):
+        if self._in_dialog:
+            return
         if QApplication.activeModalWidget() or QApplication.activePopupWidget():
             return
         if not self.isActiveWindow():
@@ -339,3 +342,7 @@ class MainWindow(QWidget):
     def focusOutEvent(self, event):
         super().focusOutEvent(event)
         self._htimer.start(300)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._stimer.start(200)
