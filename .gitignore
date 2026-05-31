@@ -1,0 +1,7 @@
+.db
+__pycache__/
+clipboard_images/
+.claude/
+app.log
+*.db
+test*
