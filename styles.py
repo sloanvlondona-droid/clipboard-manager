@@ -1,129 +1,128 @@
 """
-样式模块 — 白色主题 + 现代化 UI
+样式模块 — 现代白色主题
 """
 
 # ========== 配色 ==========
-COLOR_BG_PRIMARY    = "#FFFFFF"
-COLOR_BG_SECONDARY  = "#F8F9FA"
-COLOR_BG_HOVER      = "#EEF2FF"
-COLOR_BG_PINNED     = "#FFF9E6"
-COLOR_TEXT_PRIMARY  = "#2C3E50"
-COLOR_TEXT_SECONDARY= "#94A3B8"
-COLOR_BORDER        = "#E8ECF0"
-COLOR_ACCENT        = "#4F6EF7"
-COLOR_ACCENT_HOVER  = "#3B5DE7"
-COLOR_DANGER        = "#EF4444"
-COLOR_DANGER_HOVER  = "#DC2626"
-COLOR_PIN           = "#F59E0B"
+C_PRIMARY       = "#FFFFFF"
+C_SURFACE       = "#F8F9FB"
+C_HOVER         = "#F0F4FF"
+C_PINNED        = "#FFFDF5"
+C_PINNED_BORDER = "#FCE68A"
+C_TEXT          = "#1E293B"
+C_TEXT_SUB      = "#94A3B8"
+C_BORDER        = "#E2E8F0"
+C_BORDER_LIGHT  = "#F1F5F9"
+C_ACCENT        = "#4F6EF7"
+C_ACCENT_LIGHT  = "#EEF1FF"
+C_DANGER        = "#EF4444"
+C_DANGER_LIGHT  = "#FEF2F2"
+C_PIN_COLOR     = "#E67E00"
 
-# ========== 全局样式表 ==========
+# 旧名兼容
+COLOR_BG_PRIMARY    = C_PRIMARY
+COLOR_BG_SECONDARY  = C_SURFACE
+COLOR_BG_HOVER      = C_HOVER
+COLOR_BG_PINNED     = C_PINNED
+COLOR_TEXT_PRIMARY  = C_TEXT
+COLOR_TEXT_SECONDARY= C_TEXT_SUB
+COLOR_BORDER        = C_BORDER
+COLOR_ACCENT        = C_ACCENT
+COLOR_ACCENT_HOVER  = "#3B5DE7"
+COLOR_DANGER        = C_DANGER
+COLOR_DANGER_HOVER  = "#DC2626"
+COLOR_PIN           = C_PIN_COLOR
+
+# ========== 全局样式 ==========
 GLOBAL_STYLESHEET = f"""
 QWidget {{
-    font-family: "Microsoft YaHei UI", "Segoe UI", sans-serif;
+    font-family: "Microsoft YaHei UI", "Segoe UI", system-ui;
     font-size: 13px;
-    color: {COLOR_TEXT_PRIMARY};
-    background-color: {COLOR_BG_PRIMARY};
+    color: {C_TEXT};
+    background-color: {C_PRIMARY};
 }}
 
 QLineEdit {{
-    background-color: {COLOR_BG_SECONDARY};
-    border: 2px solid transparent;
-    border-radius: 10px;
+    background: {C_SURFACE};
+    border: 2px solid {C_BORDER_LIGHT};
+    border-radius: 12px;
     padding: 10px 14px;
     font-size: 13px;
-    margin: 8px 10px;
-    color: {COLOR_TEXT_PRIMARY};
+    margin: 6px 10px;
 }}
 QLineEdit:focus {{
-    border-color: {COLOR_ACCENT};
-    background-color: #FFFFFF;
-}}
-
-QPushButton {{
-    background-color: {COLOR_BG_PRIMARY};
-    border: 1px solid {COLOR_BORDER};
-    border-radius: 8px;
-    padding: 6px 14px;
-    font-size: 12px;
-    color: {COLOR_TEXT_PRIMARY};
-}}
-QPushButton:hover {{
-    background-color: {COLOR_BG_HOVER};
+    border-color: {C_ACCENT};
+    background: #FFFFFF;
 }}
 
 QScrollBar:vertical {{
     background: transparent;
-    width: 6px;
+    width: 5px;
     margin: 4px 2px;
 }}
 QScrollBar::handle:vertical {{
-    background: #D0D5DD;
+    background: #CBD5E1;
     border-radius: 3px;
-    min-height: 36px;
+    min-height: 40px;
 }}
 QScrollBar::handle:vertical:hover {{
-    background: #B0B5BD;
+    background: #94A3B8;
 }}
-QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
-    height: 0;
-}}
-QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{
-    background: none;
-}}
-
-QLabel#statusBar {{
-    color: {COLOR_TEXT_SECONDARY};
-    font-size: 11px;
-    padding: 4px 12px;
-    background-color: {COLOR_BG_SECONDARY};
-    border-top: 1px solid {COLOR_BORDER};
-}}
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0; }}
+QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{ background: none; }}
 
 QMenu {{
-    background-color: {COLOR_BG_PRIMARY};
-    border: 1px solid {COLOR_BORDER};
-    border-radius: 10px;
+    background: {C_PRIMARY};
+    border: 1px solid {C_BORDER};
+    border-radius: 12px;
     padding: 6px;
 }}
 QMenu::item {{
     padding: 8px 32px 8px 16px;
-    border-radius: 6px;
-    margin: 2px;
+    border-radius: 8px; margin: 2px 4px;
 }}
-QMenu::item:selected {{
-    background-color: {COLOR_BG_HOVER};
+QMenu::item:selected {{ background: {C_HOVER}; }}
+QMenu::separator {{ height: 1px; background: {C_BORDER}; margin: 4px 8px; }}
+
+QDialog {{
+    background: {C_PRIMARY};
 }}
-QMenu::separator {{
-    height: 1px;
-    background: {COLOR_BORDER};
-    margin: 4px 8px;
+QTextEdit {{
+    border: 1px solid {C_BORDER};
+    border-radius: 10px;
+    padding: 12px;
+    font-size: 14px;
 }}
 """
 
 
-def get_pinned_item_style() -> str:
+def card_style(pinned: bool = False) -> str:
+    """列表项卡片样式"""
+    if pinned:
+        return f"""
+            background: {C_PINNED};
+            border: 1px solid {C_PINNED_BORDER};
+            border-radius: 12px;
+        """
     return f"""
-        background-color: {COLOR_BG_PINNED};
-        border: 1px solid #FCD34D;
-        border-radius: 10px;
+        background: {C_PRIMARY};
+        border: 1px solid {C_BORDER};
+        border-radius: 12px;
     """
 
 
-def get_action_button_style(color: str = COLOR_ACCENT) -> str:
+def pill_btn(bg: str, border: str, color: str) -> str:
+    """药丸形按钮"""
     return f"""
         QPushButton {{
-            background-color: transparent;
-            border: none;
+            background: {bg};
+            border: 1px solid {border};
+            border-radius: 14px;
+            font-size: 11px;
+            font-weight: 500;
+            padding: 3px 14px;
             color: {color};
-            font-size: 14px;
-            padding: 2px 6px;
-            border-radius: 4px;
-            min-width: 24px;
-            max-width: 28px;
-            min-height: 24px;
-            max-height: 28px;
         }}
         QPushButton:hover {{
-            background-color: {COLOR_BG_HOVER};
+            opacity: 0.85;
         }}
     """

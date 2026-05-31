@@ -23,11 +23,8 @@ class Toast(QLabel):
         super().__init__(parent)
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.setStyleSheet("""
-            QLabel {
-                background: rgba(50,50,50,220); color: #fff;
-                border-radius: 8px; padding: 10px 24px;
-                font-size: 13px; font-weight: 500;
-            }
+            QLabel { background:#1E293B; color:#fff; border-radius:20px;
+                padding:10px 24px; font-size:13px; font-weight:500; }
         """)
         self.hide()
         self._t = QTimer(self, singleShot=True, timeout=self.hide)
@@ -43,30 +40,34 @@ class Toast(QLabel):
 
 class DetailDialog(QDialog):
     def __init__(self, entry, parent=None):
-        super().__init__(None)  # 无 parent，独立窗口
-        self.setWindowTitle("详情")
-        self.resize(550, 500)
+        super().__init__(None)
+        self.setWindowTitle("📋 详情")
+        self.resize(580, 520)
         self.setStyleSheet(styles.GLOBAL_STYLESHEET)
         ly = QVBoxLayout(self)
-        ly.setContentsMargins(16, 16, 16, 16)
+        ly.setContentsMargins(20, 20, 20, 20); ly.setSpacing(12)
 
         if entry["content_type"] == "image" and entry["image_path"]:
             s = QScrollArea(); s.setWidgetResizable(True)
             lb = QLabel(); lb.setPixmap(QPixmap(entry["image_path"]))
             lb.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            lb.setStyleSheet("background:transparent;")
             s.setWidget(lb); ly.addWidget(s, 1)
         else:
             te = QTextEdit(); te.setReadOnly(True); te.setPlainText(entry["content"])
-            te.setStyleSheet("""
-                QTextEdit { border: 1px solid #E8E8E8; border-radius: 8px;
-                padding: 14px; font-size: 14px; line-height: 1.8;
-                background: #FAFAFA; }
+            te.setStyleSheet(f"""
+                QTextEdit {{ border:1px solid {styles.C_BORDER}; border-radius:12px;
+                padding:16px; font-size:14px; line-height:1.8; background:{styles.C_SURFACE}; }}
             """)
             ly.addWidget(te, 1)
 
         bb = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         bb.rejected.connect(self.reject); bb.accepted.connect(self.accept)
-        bb.setStyleSheet("QPushButton { padding: 8px 24px; border-radius: 6px; font-size: 13px; }")
+        bb.button(QDialogButtonBox.StandardButton.Close).setStyleSheet(
+            f"QPushButton{{background:{styles.C_ACCENT};color:#fff;border:none;"
+            f"border-radius:8px;padding:8px 28px;font-size:13px;font-weight:500;}}"
+            f"QPushButton:hover{{background:#3B5DE7;}}"
+        )
         ly.addWidget(bb)
 
 
@@ -89,32 +90,21 @@ class ItemWidget(QFrame):
 
     def _build(self, entry, lw):
         self.setFixedWidth(lw - 16)
-        # 卡片样式
-        if self.pinned:
-            self.setStyleSheet("""
-                ItemWidget { background: #FFF9E6; border: 1px solid #FCD34D;
-                    border-radius: 10px; }
-            """)
-        else:
-            self.setStyleSheet("""
-                ItemWidget { background: #FFFFFF; border: 1px solid #E8ECF0;
-                    border-radius: 10px; }
-                ItemWidget:hover { background: #F8FAFD; border-color: #D0D8E8; }
-            """)
+        self.setStyleSheet(styles.card_style(self.pinned))
 
         root = QVBoxLayout(self)
-        root.setContentsMargins(14, 12, 14, 10)
-        root.setSpacing(8)
+        root.setContentsMargins(16, 14, 16, 12)
+        root.setSpacing(10)
 
         # -- 内容 --
         if self.ctype == "image" and self.ipath and os.path.exists(self.ipath):
-            pm = QPixmap(self.ipath).scaledToWidth(min(lw - 60, 200), Qt.TransformationMode.SmoothTransformation)
+            pm = QPixmap(self.ipath).scaledToWidth(min(lw - 64, 220), Qt.TransformationMode.SmoothTransformation)
             lb = QLabel()
             lb.setPixmap(pm)
             lb.setCursor(Qt.CursorShape.PointingHandCursor)
             lb.mousePressEvent = self._copy
-            lb.setToolTip("🖱 单击复制 · 双击查看大图")
-            lb.setStyleSheet("border-radius: 8px; padding: 4px; background: transparent;")
+            lb.setToolTip("🖱 单击复制 · 双击大图")
+            lb.setStyleSheet("border-radius:8px; background:transparent;")
             root.addWidget(lb)
         else:
             txt = self.content.strip()
@@ -122,47 +112,32 @@ class ItemWidget(QFrame):
             lb.setWordWrap(True)
             lb.setCursor(Qt.CursorShape.PointingHandCursor)
             lb.mousePressEvent = self._copy
-            lb.setToolTip("🖱 单击复制 · 双击查看详情")
-            lb.setStyleSheet("""
-                font-size: 13px; color: #2C3E50; line-height: 1.7;
-                background: transparent; padding: 2px 0;
-            """)
+            lb.setToolTip("🖱 单击复制 · 双击详情")
+            lb.setStyleSheet(f"font-size:13px; color:{styles.C_TEXT}; line-height:1.8; background:transparent; padding:2px 0;")
             root.addWidget(lb)
 
-        # -- 底部栏 --
+        # -- 底部栏：时间 + 按钮 --
         bar = QHBoxLayout(); bar.setSpacing(8)
         ts = (entry.get("last_used_at") or entry.get("created_at") or "")[:16].replace("T", " ")
         tl = QLabel(ts)
-        tl.setStyleSheet("color: #94A3B8; font-size: 11px; background: transparent;")
+        tl.setStyleSheet(f"color:{styles.C_TEXT_SUB}; font-size:11px; background:transparent;")
         bar.addWidget(tl); bar.addStretch()
 
-        # 置顶按钮
-        pin_text = "📌 已置顶" if self.pinned else "📌 置顶"
-        pin_bg = "#FFF9E6" if self.pinned else "#F8F9FA"
-        pin_border = "#FCD34D" if self.pinned else "#E8ECF0"
-        pin_color = "#E65100" if self.pinned else "#94A3B8"
-        pb = QPushButton(pin_text)
-        pb.setFixedHeight(28)
-        pb.setCursor(Qt.CursorShape.PointingHandCursor)
-        pb.setStyleSheet(f"""
-            QPushButton {{ background: {pin_bg}; border: 1px solid {pin_border};
-                border-radius: 14px; font-size: 11px; padding: 2px 14px;
-                color: {pin_color}; font-weight: 500; }}
-            QPushButton:hover {{ background: #FFF3D6; border-color: #FBBF24; }}
-        """)
+        # 置顶
+        if self.pinned:
+            pb = QPushButton("📌 已置顶")
+            pb.setStyleSheet(styles.pill_btn(styles.C_PINNED, styles.C_PINNED_BORDER, styles.C_PIN_COLOR))
+        else:
+            pb = QPushButton("📌 置顶")
+            pb.setStyleSheet(styles.pill_btn(styles.C_SURFACE, styles.C_BORDER, styles.C_TEXT_SUB))
+        pb.setFixedHeight(28); pb.setCursor(Qt.CursorShape.PointingHandCursor)
         pb.clicked.connect(lambda: self.pin_clicked.emit(self.eid))
         bar.addWidget(pb)
 
-        # 删除按钮
+        # 删除
         db = QPushButton("🗑 删除")
-        db.setFixedHeight(28)
-        db.setCursor(Qt.CursorShape.PointingHandCursor)
-        db.setStyleSheet("""
-            QPushButton { background: #FFF5F5; border: 1px solid #FECACA;
-                border-radius: 14px; font-size: 11px; padding: 2px 14px;
-                color: #EF4444; font-weight: 500; }
-            QPushButton:hover { background: #FEE2E2; border-color: #FCA5A5; }
-        """)
+        db.setFixedHeight(28); db.setCursor(Qt.CursorShape.PointingHandCursor)
+        db.setStyleSheet(styles.pill_btn(styles.C_DANGER_LIGHT, "#FECACA", styles.C_DANGER))
         db.clicked.connect(lambda: self.delete_clicked.emit(self.eid))
         bar.addWidget(db)
 
@@ -203,20 +178,20 @@ class MainWindow(QWidget):
         root.setContentsMargins(0, 0, 0, 0); root.setSpacing(0)
 
         # 标题栏
-        tb = QFrame(); tb.setFixedHeight(40)
-        tb.setStyleSheet(f"background: {styles.COLOR_BG_PRIMARY}; border-bottom: 1px solid {styles.COLOR_BORDER};")
-        tl = QHBoxLayout(tb); tl.setContentsMargins(16, 0, 10, 0)
+        tb = QFrame(); tb.setFixedHeight(42)
+        tb.setStyleSheet(f"background:{styles.C_PRIMARY}; border-bottom:1px solid {styles.C_BORDER_LIGHT};")
+        tl = QHBoxLayout(tb); tl.setContentsMargins(18, 0, 10, 0)
         t = QLabel("📋 剪贴板历史")
-        t.setStyleSheet("font-size: 14px; font-weight: 600; color: #333; background: transparent;")
+        t.setStyleSheet(f"font-size:14px; font-weight:600; color:{styles.C_TEXT}; background:transparent;")
         x = QPushButton("✕")
         x.setCursor(Qt.CursorShape.PointingHandCursor)
-        x.setStyleSheet("QPushButton{background:transparent;border:none;font-size:18px;color:#BBB;} QPushButton:hover{background:#F5F5F5;border-radius:6px;color:#666;}")
+        x.setStyleSheet("QPushButton{background:transparent;border:none;font-size:18px;color:#94A3B8;} QPushButton:hover{background:#F1F5F9;border-radius:8px;color:#475569;}")
         x.clicked.connect(self.hide)
         tl.addWidget(t); tl.addStretch(); tl.addWidget(x)
 
         # 搜索
         self.search = QLineEdit()
-        self.search.setPlaceholderText("🔍  搜索历史...")
+        self.search.setPlaceholderText("🔍  搜索剪贴板历史...")
         self.search.setClearButtonEnabled(True)
         self.search.textChanged.connect(lambda: self._stimer.start(300))
 
@@ -224,25 +199,25 @@ class MainWindow(QWidget):
         self.scroll = QScrollArea()
         self.scroll.setWidgetResizable(True)
         self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.scroll.setStyleSheet("QScrollArea{background:#FFF;border:none;}")
+        self.scroll.setStyleSheet(f"QScrollArea{{background:{styles.C_PRIMARY};border:none;}}")
 
         self.container = QWidget()
         self.container.setStyleSheet("background:transparent;")
         self.items_layout = QVBoxLayout(self.container)
-        self.items_layout.setContentsMargins(8, 6, 8, 6)
-        self.items_layout.setSpacing(6)
+        self.items_layout.setContentsMargins(10, 8, 10, 8)
+        self.items_layout.setSpacing(8)
         self.items_layout.addStretch()
         self.scroll.setWidget(self.container)
 
         # 底部
-        bb = QFrame(); bb.setFixedHeight(40)
-        bb.setStyleSheet(f"background:{styles.COLOR_BG_SECONDARY};border-top:1px solid {styles.COLOR_BORDER};")
-        bl = QHBoxLayout(bb); bl.setContentsMargins(16, 0, 12, 0)
+        bb = QFrame(); bb.setFixedHeight(42)
+        bb.setStyleSheet(f"background:{styles.C_SURFACE};border-top:1px solid {styles.C_BORDER_LIGHT};")
+        bl = QHBoxLayout(bb); bl.setContentsMargins(18, 0, 12, 0)
         self.count_lbl = QLabel("共 0 条")
-        self.count_lbl.setStyleSheet(f"color:{styles.COLOR_TEXT_SECONDARY};font-size:11px;background:transparent;")
+        self.count_lbl.setStyleSheet(f"color:{styles.C_TEXT_SUB};font-size:11px;background:transparent;")
         clr = QPushButton("🗑 清空全部")
         clr.setCursor(Qt.CursorShape.PointingHandCursor)
-        clr.setStyleSheet("QPushButton{background:transparent;border:none;color:#D32F2F;font-size:12px;} QPushButton:hover{background:#FFEBEE;border-radius:6px;}")
+        clr.setStyleSheet(f"QPushButton{{background:transparent;border:none;color:{styles.C_DANGER};font-size:12px;}} QPushButton:hover{{background:{styles.C_DANGER_LIGHT};border-radius:8px;}}")
         clr.clicked.connect(self._clear)
         bl.addWidget(self.count_lbl); bl.addStretch(); bl.addWidget(clr)
 
