@@ -174,6 +174,7 @@ class MainWindow(QWidget):
         self._drag_pos = None
         self._setup()
         self.refresh()
+        self.installEventFilter(self)
 
     def nativeEvent(self, eventType, message):
         """Windows 原生：边框缩放"""
@@ -309,26 +310,33 @@ class MainWindow(QWidget):
             n = database.delete_all(preserve_pinned=True)
             self.refresh(); self.toast.show_msg(f"🗑 已清空 {n} 条")
 
-    # ========== 右键 ==========
+    # ========== 右键（事件过滤器捕获所有子控件的右键） ==========
 
-    def contextMenuEvent(self, event):
-        pos = event.globalPos()
+    def eventFilter(self, obj, event):
+        if event.type() == event.Type.ContextMenu:
+            return self._show_menu(event.globalPos())
+        return super().eventFilter(obj, event)
+
+    def _show_menu(self, pos):
         child = self.childAt(self.mapFromGlobal(pos))
         while child and not isinstance(child, ItemWidget):
             child = child.parent()
         if not isinstance(child, ItemWidget):
-            return
+            return False
 
         menu = QMenu(self)
         menu.setStyleSheet(styles.GLOBAL_STYLESHEET)
-        a1 = QAction("📋 复制", menu); a1.triggered.connect(child._copy)
+        a1 = QAction("📋 复制", menu)
+        a1.triggered.connect(lambda checked, w=child: w._copy())
         a2 = QAction("🔍 查看详情", menu)
-        a2.triggered.connect(lambda: self._detail(child.eid))
+        a2.triggered.connect(lambda checked, eid=child.eid: self._detail(eid))
         a3 = QAction("📌 取消置顶" if child.pinned else "📌 置顶", menu)
-        a3.triggered.connect(lambda: self._pin(child.eid))
-        a4 = QAction("🗑 删除", menu); a4.triggered.connect(lambda: self._delete(child.eid))
+        a3.triggered.connect(lambda checked, eid=child.eid: self._pin(eid))
+        a4 = QAction("🗑 删除", menu)
+        a4.triggered.connect(lambda checked, eid=child.eid: self._delete(eid))
         menu.addActions([a1, a2, a3]); menu.addSeparator(); menu.addAction(a4)
         menu.exec(pos)
+        return True
 
     def mouseDoubleClickEvent(self, event):
         child = self.childAt(event.pos())
