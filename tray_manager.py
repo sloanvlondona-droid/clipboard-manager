@@ -85,6 +85,18 @@ class TrayManager:
 
         menu.addSeparator()
 
+        # === 窗口尺寸（互斥单选） ===
+        self.size_actions = {}
+        for name, label in [("小", "🔲 小窗口"), ("中", "🔲 中窗口"), ("大", "🔲 大窗口")]:
+            action = QAction(label, menu)
+            action.setCheckable(True)
+            action.setChecked(name == "中")  # 默认中窗口
+            action.triggered.connect(lambda checked, n=name: self._set_size(n))
+            menu.addAction(action)
+            self.size_actions[name] = action
+
+        menu.addSeparator()
+
         # === 开机自启（带勾选状态） ===
         self.autostart_action = QAction("🚀 开机自启", menu)
         self.autostart_action.setCheckable(True)
@@ -112,6 +124,12 @@ class TrayManager:
         elif reason == QSystemTrayIcon.ActivationReason.DoubleClick:
             # 左键双击 → 显示并聚焦
             self.main_window.show_and_focus()
+
+    def _set_size(self, name: str):
+        """切换窗口尺寸预设，并更新菜单勾选"""
+        for n, action in self.size_actions.items():
+            action.setChecked(n == name)
+        self.main_window.set_size_preset(name)
 
     def _toggle_autostart(self, checked: bool):
         """切换开机自启状态"""

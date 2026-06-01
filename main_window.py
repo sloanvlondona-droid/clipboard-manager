@@ -6,13 +6,20 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLineEdit,
     QPushButton, QLabel, QFrame, QMenu, QMessageBox,
     QApplication, QTextEdit, QDialog,
-    QDialogButtonBox, QScrollArea
+    QDialogButtonBox, QScrollArea, QGraphicsDropShadowEffect
 )
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QEvent
-from PyQt6.QtGui import QAction, QCursor, QPixmap, QImage, QIcon
+from PyQt6.QtGui import QAction, QCursor, QPixmap, QImage, QIcon, QColor
 import os
 import database
 import styles
+
+# ========== 窗口尺寸预设 ==========
+SIZE_PRESETS = {
+    "小": (440, 540),
+    "中": (520, 680),
+    "大": (620, 760),
+}
 
 
 # ========== Toast ==========
@@ -29,6 +36,64 @@ class Toast(QLabel):
         r = self.parent().rect()
         self.move((r.width()-self.width())//2, r.height()-70)
         self._t.start(duration)
+
+
+# ========== 自定义标题栏 ==========
+
+class TitleBar(QFrame):
+    """无边框窗口的拖拽标题栏"""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setFixedHeight(40)
+        self.setCursor(Qt.CursorShape.ArrowCursor)
+        self._drag = False
+        self._drag_offset = None
+
+        ly = QHBoxLayout(self)
+        ly.setContentsMargins(16, 0, 8, 0)
+        ly.setSpacing(0)
+
+        # 标题文字
+        title_lbl = QLabel("📋 剪贴板历史")
+        title_lbl.setStyleSheet(
+            f"font-size:13px;font-weight:600;color:{styles.C_TEXT};"
+            f"background:transparent;border:none;"
+        )
+        ly.addWidget(title_lbl)
+        ly.addStretch()
+
+        # 关闭按钮
+        self._close_btn = QPushButton("✕")
+        self._close_btn.setFixedSize(28, 28)
+        self._close_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._close_btn.setStyleSheet(f"""
+            QPushButton {{
+                background: transparent; border: none; border-radius: 14px;
+                font-size: 14px; color: {styles.C_TEXT_SUB};
+            }}
+            QPushButton:hover {{
+                background: {styles.C_DANGER}; color: #fff;
+            }}
+        """)
+        self._close_btn.clicked.connect(self.window().hide)
+        ly.addWidget(self._close_btn)
+
+    def mousePressEvent(self, e):
+        if e.button() == Qt.MouseButton.LeftButton:
+            self._drag = True
+            self._drag_offset = e.globalPosition().toPoint() - self.window().pos()
+
+    def mouseMoveEvent(self, e):
+        if self._drag and self._drag_offset:
+            self.window().move(e.globalPosition().toPoint() - self._drag_offset)
+
+    def mouseReleaseEvent(self, e):
+        self._drag = False
+        self._drag_offset = None
+
+    def mouseDoubleClickEvent(self, e):
+        pass  # 不响应双击
 
 
 # ========== 详情弹窗 ==========
@@ -74,7 +139,7 @@ class ItemWidget(QFrame):
         self._build(entry, list_width)
 
     def _build(self, entry, lw):
-        self.setFixedWidth(lw-16)
+        self.setFixedWidth(lw-20)  # 减去 items_layout 左右 margin(10+10)
         self.setStyleSheet(styles.card_style(self.pinned))
         root = QVBoxLayout(self); root.setContentsMargins(16,14,16,12); root.setSpacing(10)
 
@@ -135,18 +200,48 @@ class MainWindow(QWidget):
         self._in_dialog = False
         self.setWindowTitle("📋 剪贴板历史")
         self.setWindowIcon(QIcon())  # 去掉默认图标
-        self.setMinimumSize(420, 480)
-        self.resize(500, 660)
-        # 标准窗口 + 置顶
-        self.setWindowFlags(Qt.WindowType.Window | Qt.WindowType.WindowStaysOnTopHint)
-        self.setStyleSheet(styles.GLOBAL_STYLESHEET)
-        self._drag_pos = None
+        # 无边框 + 置顶 + 透明背景（圆角需要）
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.resize(*SIZE_PRESETS["中"])
+        self.setFixedSize(*SIZE_PRESETS["中"])  # 固定尺寸，禁止拖拽缩放
         self._setup()
         self.refresh()
         QApplication.instance().installEventFilter(self)
 
     def _setup(self):
-        root = QVBoxLayout(self); root.setContentsMargins(0,0,0,0); root.setSpacing(0)
+        # 外层布局：留 8px 边距给阴影
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(8, 8, 8, 8)
+        outer.setSpacing(0)
+
+        # 阴影效果
+        shadow = QGraphicsDropShadowEffect()
+        shadow.setBlurRadius(24)
+        shadow.setOffset(0, 4)
+        shadow.setColor(QColor(0, 0, 0, 50))
+
+        # 主体容器（白色圆角卡片）
+        self._shell = QFrame()
+        self._shell.setGraphicsEffect(shadow)
+        self._shell.setStyleSheet(
+            f"QFrame{{"
+            f"background:{styles.C_PRIMARY};"
+            f"border:1px solid {styles.C_BORDER};"
+            f"border-radius:12px;"
+            f"}}"
+        )
+
+        outer.addWidget(self._shell)
+
+        # 内容布局
+        root = QVBoxLayout(self._shell)
+        root.setContentsMargins(0, 0, 0, 0)
+        root.setSpacing(0)
+
+        # 标题栏
+        title = TitleBar(self)
+        root.addWidget(title)
 
         # 搜索
         self.search = QLineEdit()
@@ -162,24 +257,42 @@ class MainWindow(QWidget):
 
         self.container = QWidget()
         self.items_layout = QVBoxLayout(self.container)
-        self.items_layout.setContentsMargins(10,8,10,8); self.items_layout.setSpacing(8)
+        self.items_layout.setContentsMargins(10, 8, 10, 8)
+        self.items_layout.setSpacing(8)
         self.items_layout.addStretch()
         self.scroll.setWidget(self.container)
 
         # 底部
-        bb = QFrame(); bb.setFixedHeight(40)
-        bb.setStyleSheet(f"background:{styles.C_SURFACE};border-top:1px solid {styles.C_BORDER_LIGHT};")
-        bl = QHBoxLayout(bb); bl.setContentsMargins(18,0,12,0)
+        bb = QFrame()
+        bb.setFixedHeight(40)
+        bb.setStyleSheet(
+            f"background:{styles.C_SURFACE};"
+            f"border-top:1px solid {styles.C_BORDER_LIGHT};"
+            f"border-bottom-left-radius:12px;"
+            f"border-bottom-right-radius:12px;"
+        )
+        bl = QHBoxLayout(bb)
+        bl.setContentsMargins(18, 0, 12, 0)
         self.count_lbl = QLabel("共 0 条")
-        self.count_lbl.setStyleSheet(f"color:{styles.C_TEXT_SUB};font-size:11px;background:transparent;")
-        clr = QPushButton("🗑 清空全部"); clr.setCursor(Qt.CursorShape.PointingHandCursor)
-        clr.setStyleSheet(f"QPushButton{{background:transparent;border:none;color:{styles.C_DANGER};font-size:12px;}} QPushButton:hover{{background:{styles.C_DANGER_LIGHT};border-radius:8px;}}")
+        self.count_lbl.setStyleSheet(
+            f"color:{styles.C_TEXT_SUB};font-size:11px;background:transparent;"
+        )
+        clr = QPushButton("🗑 清空全部")
+        clr.setCursor(Qt.CursorShape.PointingHandCursor)
+        clr.setStyleSheet(
+            f"QPushButton{{background:transparent;border:none;color:{styles.C_DANGER};font-size:12px;}}"
+            f"QPushButton:hover{{background:{styles.C_DANGER_LIGHT};border-radius:8px;}}"
+        )
         clr.clicked.connect(self._clear)
-        bl.addWidget(self.count_lbl); bl.addStretch(); bl.addWidget(clr)
+        bl.addWidget(self.count_lbl)
+        bl.addStretch()
+        bl.addWidget(clr)
 
-        self.toast = Toast(self)
+        self.toast = Toast(self._shell)
 
-        root.addWidget(self.search); root.addWidget(self.scroll,1); root.addWidget(bb)
+        root.addWidget(self.search)
+        root.addWidget(self.scroll, 1)
+        root.addWidget(bb)
         self._stimer = QTimer(self, singleShot=True, timeout=self.refresh)
         self._htimer = QTimer(self, singleShot=True, timeout=self._try_hide)
 
@@ -193,7 +306,7 @@ class MainWindow(QWidget):
             while self.items_layout.count()>1:
                 w = self.items_layout.takeAt(0)
                 if w.widget(): w.widget().deleteLater()
-            lw = max(self.scroll.viewport().width(), 420)
+            lw = self.scroll.viewport().width()
             for e in entries:
                 iw = ItemWidget(e, lw)
                 iw.pin_clicked.connect(self._pin)
@@ -267,6 +380,18 @@ class MainWindow(QWidget):
         if s:
             g = s.availableGeometry()
             self.move(g.right()-self.width()-10, g.bottom()-self.height()-10)
+
+    def set_size_preset(self, name: str):
+        """切换窗口尺寸预设（小/中/大）"""
+        if name not in SIZE_PRESETS:
+            return
+        w, h = SIZE_PRESETS[name]
+        self.setMinimumSize(0, 0)
+        self.setMaximumSize(16777215, 16777215)  # QWIDGETSIZE_MAX
+        self.resize(w, h)
+        self.setFixedSize(w, h)
+        self._pos()  # 调整位置，保持在右下角
+        self.toast.show_msg(f"🔲 {name}窗口")
 
     def _try_hide(self):
         if self._in_dialog: return
